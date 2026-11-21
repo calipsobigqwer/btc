@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bitcoin-puzzle в браузере — поиск с настройками</title>
+<style>
+  :root{
+    --bg:#060a14; --card:#0d1526; --card2:#111c33; --line:#1e2c48;
+    --txt:#e7eefb; --mut:#8ea3c4; --acc:#4fd1c5; --acc2:#7c6cff; --ok:#3ddc84; --err:#ff8080;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#12203d,var(--bg));
+       color:var(--txt);font:15px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1120px;margin:0 auto;padding:26px 18px 60px}
+  h1{font-size:25px;margin:0 0 6px} h1 span{color:var(--acc)}
+  .sub{color:var(--mut);margin:0 0 22px}
+  .panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,360px);gap:18px;align-items:start}
+  @media(max-width:980px){.panel{grid-template-columns:1fr}}
+  .log{max-height:430px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:#0a1224}
+  .log table{margin:0}
+  .log th,.log td{padding:6px 8px;font-size:12px}
+  .log td:nth-child(2){font:11.5px/1.4 ui-monospace,Menlo,monospace;word-break:break-all}
+  .log td:nth-child(3){color:#8fe6b6;font:11.5px/1.4 ui-monospace,Menlo,monospace;word-break:break-all}
+  .log .empty{padding:16px;color:var(--mut);font-size:12.5px;text-align:center}
+  .thr{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut);margin-top:8px}
+  .thr input{width:62px}
+  .card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);
+        border-radius:16px;padding:18px}
+  .card h2{font-size:15px;margin:0 0 12px;letter-spacing:.3px;color:var(--acc);text-transform:uppercase}
+  canvas{display:block;border-radius:12px;border:1px solid var(--line);background:#070d1c;margin:0 auto 12px}
+  .target{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut);word-break:break-all;margin:0 0 12px}
+  .target b{color:#cfe0ff}
+  .ctl{border:1px solid var(--line);border-radius:12px;padding:12px;background:#0a1224;margin-bottom:12px}
+  .ctl h3{font-size:12px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+  .modes{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+  .modes label{display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer}
+  .fields{display:flex;gap:10px;flex-wrap:wrap}
+  .fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut);flex:1 1 150px}
+  input[type=text]{background:#0e1a30;border:1px solid var(--line);color:var(--txt);border-radius:9px;
+       padding:8px 10px;font:13px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;width:100%}
+  input[type=text]:focus{outline:none;border-color:var(--acc)}
+  #addrRow{margin-bottom:10px}
+  .chk{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--mut);margin-top:8px;cursor:pointer}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  button{cursor:pointer;border:1px solid var(--line);background:#16233d;color:var(--txt);
+         padding:10px 16px;border-radius:10px;font-size:14px;font-weight:600}
+  button:hover{background:#1c2c4c}
+  button:disabled{opacity:.5;cursor:default}
+  #btn{background:linear-gradient(90deg,var(--acc2),var(--acc));border:0;color:#06121f}
+  .hint{font-size:12px;color:var(--mut);margin:10px 0 0;word-break:break-word}
+  .hint.err{color:var(--err)}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:6px 0 8px}
+  .stat{background:#0a1224;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .stat .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+  .stat .v{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;word-break:break-all}
+  .barwrap{height:8px;background:#0a1224;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin:12px 0}
+  #bar{height:100%;width:0;background:linear-gradient(90deg,var(--acc2),var(--acc));transition:width .12s linear}
+  .banner{background:#0a1224;border:1px dashed var(--line);border-radius:10px;padding:10px;text-align:center;
+          color:var(--mut);font-size:14px}
+  .banner.ok{border-style:solid;border-color:var(--ok);color:#eafff3;background:#0c2018}
+  .legend{font-size:12px;color:var(--mut);margin:8px 0 0}
+  .target-line{margin:0 0 10px}
+  .target-line .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+  ul{margin:8px 0 0;padding-left:18px} li{margin:4px 0}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px}
+  th,td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:left}
+  th{color:var(--mut);font-weight:600}
+  td:last-child{text-align:right;font-variant-numeric:tabular-nums;color:#ffd9a0}
+  .note{background:#1a1226;border:1px solid #3a2a55;border-radius:10px;padding:10px;margin-top:12px;font-size:13px;color:#d9c9ff}
+  code{background:#0a1224;border:1px solid var(--line);border-radius:6px;padding:1px 5px;font-size:12px}
+  #done{margin-top:12px;font-size:12px;color:var(--mut);word-break:break-all}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Bitcoin-puzzle <span>в браузере</span> — задайте диапазон и цель</h1>
+  <p class="sub">Страница сама считает криптографию (secp256k1, SHA-256, RIPEMD-160, Base58) и перебирает ключи
+  «в цветных точках». Вы задаёте диапазон поиска, направление и цель.</p>
+  <p class="sub" style="color:#8fe6b6">Версия 3 · перебор идёт <b>сверху вниз</b> (от конца диапазона к началу), а в боковом журнале
+  собираются совпадения <b>«с начала»</b> — по началу отпечатка. Скорость прежняя: ≈ 134 000 ключей/с.</p>
+
+  <div class="card">
+    <h2>Поиск</h2>
+    <div class="panel">
+      <div class="col-main">
+        <canvas id="sky" width="460" height="460"></canvas>
+        <p class="target">Цель (адрес): <b id="target">—</b></p>
+
+      <div class="ctl">
+        <h3>Что ищем</h3>
+        <div class="modes">
+          <label><input type="radio" name="mode" value="demo" checked> Спрятанный ключ (демо)</label>
+          <label><input type="radio" name="mode" value="addr"> Свой адрес-цель</label>
+        </div>
+        <div id="addrRow" hidden>
+          <label style="display:block;font-size:12px;color:var(--mut)">Адрес (P2PKH, начинается с «1»)
+            <input type="text" id="addr" placeholder="например 1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH">
+          </label>
+          <label class="chk"><input type="checkbox" id="unc"> проверять и несжатый ключ (медленнее, ×2)</label>
+        </div>
+
+        <h3 style="margin-top:12px">Диапазон ключей</h3>
+        <div class="fields">
+          <label>Начало (включительно)<input type="text" id="start" value="2^25"></label>
+          <label>Конец (включительно)<input type="text" id="end" value="2^25+9999"></label>
+        </div>
+        <h3 style="margin-top:12px">Направление перебора</h3>
+        <div class="modes">
+          <label><input type="radio" name="dir" value="down" checked> Сверху вниз ⬇ (от конца к началу)</label>
+          <label><input type="radio" name="dir" value="up"> Снизу вверх ⬆</label>
+        </div>
+        <p class="hint">Можно писать: обычное число, <code>0x1f</code>, или степень <code>2^70</code>, <code>2^70-1</code>,
+          <code>2^25+9999</code>.</p>
+        <div class="row">
+          <button id="btn">▶ Запустить</button>
+          <button id="reset">↻ Сброс</button>
+        </div>
+        <p class="hint" id="hint"></p>
+      </div>
+
+      <div class="barwrap"><div id="bar"></div></div>
+      <div class="stats">
+        <div class="stat"><div class="k">проверено</div><div class="v" id="statKeys">0</div></div>
+        <div class="stat"><div class="k">скорость</div><div class="v" id="statRate">—</div></div>
+        <div class="stat"><div class="k">время</div><div class="v" id="statTime">0.0 c</div></div>
+        <div class="stat"><div class="k">осталось (оценка)</div><div class="v" id="statEta">—</div></div>
+        <div class="stat" style="grid-column:1/-1"><div class="k">текущий ключ</div><div class="v" id="statCur">—</div></div>
+      </div>
+      <div class="banner" id="banner">Готово к запуску.</div>
+      <div id="done" hidden></div>
+      <p class="legend">Каждая цветная точка = один проверенный ключ (цвет — оттенок номера, положение — из его «отпечатка»).
+        Это <b>картинка</b> перебора, а не его ускорение.</p>
+      </div>
+
+      <div class="col-log">
+        <h3 style="font-size:12px;margin:0 0 6px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px">Совпадения «с начала»</h3>
+        <p class="hint" style="margin-top:0">Строки, у которых отпечаток ключа (hex160) совпал с целью по
+          <b>началу</b> — первым символам. В журнал попадает только совпадение строго длиннее порога.
+          Чем меньше порог, тем чаще записи (и тем сильнее тормозится сам поиск).</p>
+        <div class="thr">Порог, символов: <input type="text" id="thr" value="6"></div>
+        <div class="thr" style="margin-top:6px">Найдено: <b id="logCount" style="color:#8fe6b6">0</b>
+          <button id="logClear" style="margin-left:auto;padding:5px 10px;font-size:12px">Очистить</button></div>
+        <div class="log">
+          <table id="logTable" style="display:none">
+            <thead><tr><th>#</th><th>ключ</th><th>начало hex160</th><th>симв.</th></tr></thead>
+            <tbody id="logBody"></tbody>
+          </table>
+          <div id="logEmpty" class="empty">Пока пусто.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- secp256k1 + hashes (self-contained, no external libs) ---
+const P = 2n**256n - 2n**32n - 977n;
+const Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;
+const Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;
+
+function modpow(b,e,m){let r=1n;b%=m;while(e>0n){if(e&1n)r=r*b%m;b=b*b%m;e>>=1n;}return r;}
+function inv(a){return modpow(a,P-2n,P);}
+function add(P1,P2){
+  if(P1===null)return P2; if(P2===null)return P1;
+  if(P1[0]===P2[0] && (P1[1]+P2[1])%P===0n) return null;
+  let l;
+  if(P1[0]===P2[0] && P1[1]===P2[1]) l=(3n*P1[0]*P1[0])%P*inv((2n*P1[1])%P)%P;
+  else l=(((P2[1]-P1[1])%P+P)%P)*inv((((P2[0]-P1[0])%P)+P)%P)%P;
+  let x=(l*l-P1[0]-P2[0])%P; x=(x+P)%P;
+  let y=(l*(P1[0]-x)-P1[1])%P; y=(y+P)%P;
+  return [x,y];
+}
+function mul(k,Pt){let r=null;while(k>0n){if(k&1n)r=add(r,Pt);Pt=add(Pt,Pt);k>>=1n;}return r;}
+const G=[Gx,Gy];
+
+// ---- SHA-256 ----
+const K256=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+function rotr(x,n){return ((x>>>n)|(x<<(32-n)))>>>0;}
+function sha256(bytes){
+  let h=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const l=bytes.length;
+  const m=Array.from(bytes);
+  m.push(0x80);
+  while(m.length%64!==56) m.push(0);
+  const bl=l*8;
+  const hi=Math.floor(bl/4294967296), lo=bl>>>0;
+  m.push((hi>>>24)&255,(hi>>>16)&255,(hi>>>8)&255,hi&255,(lo>>>24)&255,(lo>>>16)&255,(lo>>>8)&255,lo&255);
+  const w=new Array(64);
+  for(let i=0;i<m.length;i+=64){
+    for(let t=0;t<16;t++) w[t]=(m[i+t*4]<<24)|(m[i+t*4+1]<<16)|(m[i+t*4+2]<<8)|m[i+t*4+3];
+    for(let t=16;t<64;t++){
+      const s0=rotr(w[t-15],7)^rotr(w[t-15],18)^(w[t-15]>>>3);
+      const s1=rotr(w[t-2],17)^rotr(w[t-2],19)^(w[t-2]>>>10);
+      w[t]=(w[t-16]+s0+w[t-7]+s1)>>>0;
+    }
+    let [a,b,c,d,e,f,g,hh]=h;
+    for(let t=0;t<64;t++){
+      const S1=rotr(e,6)^rotr(e,11)^rotr(e,25);
+      const ch=(e&f)^((~e)&g);
+      const t1=(hh+S1+ch+K256[t]+w[t])>>>0;
+      const S0=rotr(a,2)^rotr(a,13)^rotr(a,22);
+      const maj=(a&b)^(a&c)^(b&c);
+      const t2=(S0+maj)>>>0;
+      hh=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
+    }
+    h=[(h[0]+a)>>>0,(h[1]+b)>>>0,(h[2]+c)>>>0,(h[3]+d)>>>0,(h[4]+e)>>>0,(h[5]+f)>>>0,(h[6]+g)>>>0,(h[7]+hh)>>>0];
+  }
+  const out=[];
+  for(const x of h) out.push((x>>>24)&255,(x>>>16)&255,(x>>>8)&255,x&255);
+  return out;
+}
+
+// ---- RIPEMD-160 ----
+const RL=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
+const RR=[5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
+const SL=[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
+const SR=[8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];
+const KL=[0x00000000,0x5a827999,0x6ed9eba1,0x8f1bbcdc,0xa953fd4e];
+const KR=[0x50a28be6,0x5c4dd124,0x6d703ef3,0x7a6d76e9,0x00000000];
+function rol(x,n){return ((x<<n)|(x>>>(32-n)))>>>0;}
+function f(j,x,y,z){if(j<16)return (x^y^z)>>>0;if(j<32)return ((x&y)|((~x)&z))>>>0;if(j<48)return ((x|(~y))^z)>>>0;if(j<64)return ((x&z)|(y&(~z)))>>>0;return (x^(y|(~z)))>>>0;}
+function ripemd160(bytes){
+  let h=[0x67452301,0xefcdab89,0x98badcfe,0x10325476,0xc3d2e1f0];
+  const l=bytes.length;
+  const m=Array.from(bytes);
+  m.push(0x80);
+  while(m.length%64!==56) m.push(0);
+  const bl=l*8;
+  const lo=bl>>>0, hi=Math.floor(bl/4294967296);
+  for(let k=0;k<8;k++){} // low 64-bit length little endian
+  m.push(lo&255,(lo>>>8)&255,(lo>>>16)&255,(lo>>>24)&255,hi&255,(hi>>>8)&255,(hi>>>16)&255,(hi>>>24)&255);
+  const X=new Array(16);
+  for(let i=0;i<m.length;i+=64){
+    for(let t=0;t<16;t++) X[t]=(m[i+t*4])|(m[i+t*4+1]<<8)|(m[i+t*4+2]<<16)|(m[i+t*4+3]<<24);
+    let [a,b,c,d,e]=h, [aa,bb,cc,dd,ee]=h;
+    for(let j=0;j<80;j++){
+      const rl=RL[j], sl=SL[j];
+      let t=(a+f(j,b,c,d)+X[rl]+KL[(j/16)|0])>>>0; t=(rol(t,sl)+e)>>>0;
+      a=e; e=d; d=rol(c,10); c=b; b=t;
+      const rr=RR[j], sr=SR[j];
+      let t2=(aa+f(79-j,bb,cc,dd)+X[rr]+KR[(j/16)|0])>>>0; t2=(rol(t2,sr)+ee)>>>0;
+      aa=ee; ee=dd; dd=rol(cc,10); cc=bb; bb=t2;
+    }
+    const t=h[1]+c+dd;
+    h[1]=(h[2]+d+ee)>>>0; h[2]=(h[3]+e+aa)>>>0; h[3]=(h[4]+a+bb)>>>0; h[4]=(h[0]+b+cc)>>>0; h[0]=t>>>0;
+  }
+  const out=[];
+  for(const x of h) out.push(x&255,(x>>>8)&255,(x>>>16)&255,(x>>>24)&255);
+  return out;
+}
+
+function hash160(compressedPub){
+  const s=sha256(compressedPub);
+  return ripemd160(s);
+}
+function pubBytes(Pt,compressed){
+  const xb=bigToBuf(Pt[0],32);
+  if(!compressed) return [0x04,...xb,...bigToBuf(Pt[1],32)];
+  return [(Pt[1]&1n)?0x03:0x02, ...xb];
+}
+function bigToBuf(v,len){const b=new Array(len);for(let i=len-1;i>=0;i--){b[i]=Number(v&255n);v>>=8n;}return b;}
+const B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function base58check(payload){
+  const c=[...payload,...sha256(sha256(payload)).slice(0,4)];
+  let n=0n; for(const byte of c) n=n*256n+BigInt(byte);
+  let s=''; while(n>0n){ s=B58[Number(n%58n)]+s; n/=58n; }
+  for(const byte of c){ if(byte===0) s='1'+s; else break; }
+  return s;
+}
+function addressFromHash160(h160){ return base58check([0x00,...h160]); }
+
+function base58Decode(str){
+  var n=0n;
+  for(var i=0;i<str.length;i++){
+    var idx=B58.indexOf(str[i]);
+    if(idx<0) return null;
+    n=n*58n+BigInt(idx);
+  }
+  var bytes=[];
+  while(n>0n){ bytes.unshift(Number(n&255n)); n>>=8n; }
+  for(var j=0;j<str.length && str[j]==='1';j++) bytes.unshift(0);
+  return bytes;
+}
+function hash160FromAddress(addr){
+  addr=(addr||'').trim();
+  if(/^(bc1|tb1|bcrt1)/i.test(addr)) throw new Error('Это адрес типа bech32 (bc1…). Здесь поддерживаются только обычные адреса P2PKH (начинаются с «1»).');
+  var raw=base58Decode(addr);
+  if(!raw || raw.length!==25) throw new Error('Адрес не похож на Base58Check (25 байт).');
+  var payload=raw.slice(0,21), chk=raw.slice(21);
+  var good=sha256(sha256(payload)).slice(0,4);
+  for(var i=0;i<4;i++) if(good[i]!==chk[i]) throw new Error('Неверная контрольная сумма адреса — проверьте, нет ли опечатки.');
+  if(payload[0]!==0x00) throw new Error('Это не адрес P2PKH основной сети (версия 0x00). Поддерживаются адреса, начинающиеся с «1».');
+  return payload.slice(1);
+}
+
+/* ================= FAST PATH: Jacobian walk + typed-array hashing ================= */
+function mn(a){a%=P;return a<0n?a+P:a;}
+
+var _j=[0n,0n,0n];
+function jacDbl(x,y,z){
+  var A=mn(x*x), B=mn(y*y), C=mn(B*B);
+  var D=mn(2n*(mn(mn((x+B)*(x+B))-A-C)));
+  var E=mn(3n*A), F=mn(E*E);
+  var X3=mn(F-2n*D);
+  var Y3=mn(E*mn(D-X3)-8n*C);
+  var Z3=mn(2n*y*z);
+  _j[0]=X3;_j[1]=Y3;_j[2]=Z3;return _j;
+}
+/* Jacobian P + affine G (mixed add, a=0) */
+function jacAddG(x,y,z){
+  if(z===0n) return jacDbl(Gx,Gy,1n);
+  var z2=mn(z*z), u2=mn(Gx*z2), s2=mn(Gy*mn(z*z2));
+  var H=mn(u2-x);
+  if(H===0n){
+    var r0=mn(2n*mn(s2-y));
+    if(r0===0n) return jacDbl(x,y,z);
+    _j[0]=0n;_j[1]=1n;_j[2]=0n;return _j;   // infinity
+  }
+  var HH=mn(H*H), I=mn(4n*HH), J=mn(H*I);
+  var rr=mn(2n*mn(s2-y)), V=mn(x*I);
+  var X3=mn(rr*rr-J-2n*V);
+  var Y3=mn(rr*mn(V-X3)-2n*y*J);
+  var zH=mn(z+H);
+  var Z3=mn(mn(zH*zH)-z2-HH);
+  _j[0]=X3;_j[1]=Y3;_j[2]=Z3;return _j;
+}
+/* Jacobian P + affine (-G), mixed add (walk downwards: key-1 each step) */
+var Gyn = P - Gy;
+function jacAddNegG(x,y,z){
+  if(z===0n) return jacDbl(Gx,Gy,1n);
+  var z2=mn(z*z), u2=mn(Gx*z2), s2=mn(Gyn*mn(z*z2));
+  var H=mn(u2-x);
+  if(H===0n){
+    var r0=mn(2n*mn(s2-y));
+    if(r0===0n) return jacDbl(x,y,z);
+    _j[0]=0n;_j[1]=1n;_j[2]=0n;return _j;   // infinity
+  }
+  var HH=mn(H*H), I=mn(4n*HH), J=mn(H*I);
+  var rr=mn(2n*mn(s2-y)), V=mn(x*I);
+  var X3=mn(rr*rr-J-2n*V);
+  var Y3=mn(rr*mn(V-X3)-2n*y*J);
+  var zH=mn(z+H);
+  var Z3=mn(mn(zH*zH)-z2-HH);
+  _j[0]=X3;_j[1]=Y3;_j[2]=Z3;return _j;
+}
+/* Montgomery batch inversion of zs[0..n-1] -> out[] */
+function batchInvZ(zs,n,out){
+  var i,t=1n;
+  var acc=_acc; if(acc.length<n) acc=_acc=new Array(n);
+  for(i=0;i<n;i++){ acc[i]=t; t=mn(t*zs[i]); }
+  var cur=inv(t);
+  for(i=n-1;i>=0;i--){ out[i]=mn(cur*acc[i]); cur=mn(cur*zs[i]); }
+  return out;
+}
+var _acc=[1n];
+function w32(dst,off,v){ for(var i=31;i>=0;i--){ dst[off+i]=Number(v&255n); v>>=8n; } }
+
+var _blk=new Uint8Array(64), _w=new Int32Array(64), _mid=new Uint8Array(32);
+function sha256b(msg,out){
+  var l=msg.length;
+  if(l>55){ var t=sha256(msg); for(var q=0;q<32;q++) out[q]=t[q]; return out; }
+  _blk.fill(0);
+  for(var i=0;i<l;i++) _blk[i]=msg[i];
+  _blk[l]=0x80;
+  var bits=l*8;
+  _blk[60]=(bits>>>24)&255;_blk[61]=(bits>>>16)&255;_blk[62]=(bits>>>8)&255;_blk[63]=bits&255;
+  var h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  for(var t2=0;t2<16;t2++) _w[t2]=(_blk[t2*4]<<24)|(_blk[t2*4+1]<<16)|(_blk[t2*4+2]<<8)|_blk[t2*4+3];
+  for(t2=16;t2<64;t2++){
+    var x=_w[t2-15], y=_w[t2-2];
+    var s0=rotr(x,7)^rotr(x,18)^(x>>>3);
+    var s1=rotr(y,17)^rotr(y,19)^(y>>>10);
+    _w[t2]=(_w[t2-16]+s0+_w[t2-7]+s1)>>>0;
+  }
+  var a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,hh=h7;
+  for(t2=0;t2<64;t2++){
+    var S1=rotr(e,6)^rotr(e,11)^rotr(e,25);
+    var ch=(e&f)^((~e)&g);
+    var t1=(hh+S1+ch+K256[t2]+_w[t2])>>>0;
+    var S0=rotr(a,2)^rotr(a,13)^rotr(a,22);
+    var maj=(a&b)^(a&c)^(b&c);
+    var t22=(S0+maj)>>>0;
+    hh=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t22)>>>0;
+  }
+  h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;
+  h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+hh)>>>0;
+  out[0]=(h0>>>24)&255;out[1]=(h0>>>16)&255;out[2]=(h0>>>8)&255;out[3]=h0&255;
+  out[4]=(h1>>>24)&255;out[5]=(h1>>>16)&255;out[6]=(h1>>>8)&255;out[7]=h1&255;
+  out[8]=(h2>>>24)&255;out[9]=(h2>>>16)&255;out[10]=(h2>>>8)&255;out[11]=h2&255;
+  out[12]=(h3>>>24)&255;out[13]=(h3>>>16)&255;out[14]=(h3>>>8)&255;out[15]=h3&255;
+  out[16]=(h4>>>24)&255;out[17]=(h4>>>16)&255;out[18]=(h4>>>8)&255;out[19]=h4&255;
+  out[20]=(h5>>>24)&255;out[21]=(h5>>>16)&255;out[22]=(h5>>>8)&255;out[23]=h5&255;
+  out[24]=(h6>>>24)&255;out[25]=(h6>>>16)&255;out[26]=(h6>>>8)&255;out[27]=h6&255;
+  out[28]=(h7>>>24)&255;out[29]=(h7>>>16)&255;out[30]=(h7>>>8)&255;out[31]=h7&255;
+  return out;
+}
+function ripemd160b(msg,out){
+  var l=msg.length;
+  if(l>55){ var t=ripemd160(msg); for(var q=0;q<20;q++) out[q]=t[q]; return out; }
+  _blk.fill(0);
+  for(var i=0;i<l;i++) _blk[i]=msg[i];
+  _blk[l]=0x80;
+  var bits=l*8;
+  _blk[56]=bits&255;_blk[57]=(bits>>>8)&255;_blk[58]=(bits>>>16)&255;_blk[59]=(bits>>>24)&255;
+  var h0=0x67452301,h1=0xefcdab89,h2=0x98badcfe,h3=0x10325476,h4=0xc3d2e1f0;
+  var X=new Int32Array(16);
+  for(var t2=0;t2<16;t2++) X[t2]=(_blk[t2*4])|(_blk[t2*4+1]<<8)|(_blk[t2*4+2]<<16)|(_blk[t2*4+3]<<24);
+  var a=h0,b=h1,c=h2,d=h3,e=h4,aa=h0,bb=h1,cc=h2,dd=h3,ee=h4;
+  for(var j=0;j<80;j++){
+    var rl=RL[j], tt;
+    tt=(a+f(j,b,c,d)+X[rl]+KL[(j/16)|0])>>>0; tt=(rol(tt,SL[j])+e)>>>0;
+    a=e;e=d;d=rol(c,10);c=b;b=tt;
+    var rr=RR[j];
+    tt=(aa+f(79-j,bb,cc,dd)+X[rr]+KR[(j/16)|0])>>>0; tt=(rol(tt,SR[j])+ee)>>>0;
+    aa=ee;ee=dd;dd=rol(cc,10);cc=bb;bb=tt;
+  }
+  var t3=(h1+c+dd)>>>0;
+  h1=(h2+d+ee)>>>0; h2=(h3+e+aa)>>>0; h3=(h4+a+bb)>>>0; h4=(h0+b+cc)>>>0; h0=t3>>>0;
+  out[0]=h0&255;out[1]=(h0>>>8)&255;out[2]=(h0>>>16)&255;out[3]=(h0>>>24)&255;
+  out[4]=h1&255;out[5]=(h1>>>8)&255;out[6]=(h1>>>16)&255;out[7]=(h1>>>24)&255;
+  out[8]=h2&255;out[9]=(h2>>>8)&255;out[10]=(h2>>>16)&255;out[11]=(h2>>>24)&255;
+  out[12]=h3&255;out[13]=(h3>>>8)&255;out[14]=(h3>>>16)&255;out[15]=(h3>>>24)&255;
+  out[16]=h4&255;out[17]=(h4>>>8)&255;out[18]=(h4>>>16)&255;out[19]=(h4>>>24)&255;
+  return out;
+}
+function hash160b(pub,out){ sha256b(pub,_mid); ripemd160b(_mid,out); return out; }
+
+if (typeof module!=="undefined" && module.exports) module.exports={P,add,mul,G,sha256,ripemd160,hash160,pubBytes,bigToBuf,base58check,addressFromHash160,base58Decode,hash160FromAddress,jacDbl,jacAddG,jacAddNegG,Gyn,batchInvZ,w32,sha256b,ripemd160b,hash160b,mn};
+
+/* ---- browser UI: configurable range + target, with colored-point visualisation ---- */
+(function () {
+  var BATCH = 4096;               // keys checked per animation frame
+  var RATE_GUESS = 134000;        // keys/s, for the idle ETA preview
+
+  var cv = document.getElementById('sky');
+  var ctx = cv.getContext('2d');
+  var W = 460, H = 460, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = W * DPR; cv.height = H * DPR;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  ctx.scale(DPR, DPR);
+
+  var startKey = null, endKey = null, count = 0n;
+  var target = null, taddr = '', hidden = null, checkUnc = false;
+  var cur = null, pt = null, tried = 0n;
+  var DOWN = true;                        // перебор сверху вниз (по умолчанию)
+  var jx = null, jy = null, jz = 1n;      // running point, Jacobian coords
+  var bx = new Array(BATCH), by = new Array(BATCH), bz = new Array(BATCH), binv = new Array(BATCH);
+  var pubB = new Uint8Array(33), pubU = new Uint8Array(65), hO = new Uint8Array(20);
+
+  var HEX = '0123456789abcdef';
+  var TGT_HEX = '', THR = 6, logN = 0, hueN = 0, LOG_MAX = 200, logBudget = 0;
+  var running = false, started = false, finished = false;
+  var foundKey = null, foundXY = null, t0 = 0, elapsed = 0;
+
+  var el = {
+    start: document.getElementById('start'),
+    end: document.getElementById('end'),
+    addr: document.getElementById('addr'),
+    addrRow: document.getElementById('addrRow'),
+    unc: document.getElementById('unc'),
+    target: document.getElementById('target'),
+    keys: document.getElementById('statKeys'),
+    rate: document.getElementById('statRate'),
+    time: document.getElementById('statTime'),
+    eta: document.getElementById('statEta'),
+    curk: document.getElementById('statCur'),
+    bar: document.getElementById('bar'),
+    banner: document.getElementById('banner'),
+    btn: document.getElementById('btn'),
+    reset: document.getElementById('reset'),
+    done: document.getElementById('done'),
+    hint: document.getElementById('hint'),
+    thr: document.getElementById('thr'),
+    logCount: document.getElementById('logCount'),
+    logClear: document.getElementById('logClear'),
+    logBody: document.getElementById('logBody'),
+    logEmpty: document.getElementById('logEmpty'),
+    logTable: document.getElementById('logTable')
+  };
+  var modes = document.getElementsByName('mode');
+  var dirs = document.getElementsByName('dir');
+
+  function getMode() {
+    for (var i = 0; i < modes.length; i++) if (modes[i].checked) return modes[i].value;
+    return 'demo';
+  }
+  function getDir() {
+    for (var i = 0; i < dirs.length; i++) if (dirs[i].checked) return dirs[i].value;
+    return 'down';
+  }
+  function eq20(a, b) { for (var i = 0; i < 20; i++) if (a[i] !== b[i]) return false; return true; }
+
+  /* ---- журнал совпадений «с начала» (по началу hex160) ---- */
+  function hex20(b) {
+    var s = '', k, v;
+    for (k = 0; k < 20; k++) { v = b[k]; s += HEX[v >> 4] + HEX[v & 15]; }
+    return s;
+  }
+  function readThr() {
+    var v = parseInt(el.thr.value, 10);
+    if (!isFinite(v) || v < 0) v = 6;
+    if (v > 40) v = 40;
+    THR = v; el.thr.value = String(v);
+  }
+  function clearLog() {
+    logN = 0;
+    if (!el.logBody) return;
+    while (el.logBody.firstChild) el.logBody.removeChild(el.logBody.firstChild);
+    el.logTable.style.display = 'none';
+    el.logEmpty.style.display = '';
+    el.logCount.textContent = '0';
+  }
+  function addLog(key, head, len) {
+    if (logBudget <= 0) return;
+    logBudget--;
+    logN++;
+    if (!el.logBody) return;
+    el.logTable.style.display = 'table';
+    el.logEmpty.style.display = 'none';
+    var tr = document.createElement('tr'), t1 = document.createElement('td'),
+        t2 = document.createElement('td'), t3 = document.createElement('td'), t4 = document.createElement('td');
+    t1.textContent = logN;
+    t2.textContent = key;
+    t3.textContent = head + '…';
+    t4.textContent = len;
+    tr.appendChild(t1); tr.appendChild(t2); tr.appendChild(t3); tr.appendChild(t4);
+    el.logBody.insertBefore(tr, el.logBody.firstChild);
+    while (el.logBody.childNodes.length > LOG_MAX) el.logBody.removeChild(el.logBody.lastChild);
+    el.logCount.textContent = logN.toLocaleString('ru-RU');
+  }
+
+  /* decimal, 0xHEX, 2^n, and +/- offsets like 2^70-1 */
+  function parseKey(s) {
+    s = (s || '').trim().replace(/\s+/g, '');
+    if (!s) return null;
+    var m = s.match(/^(2\^(\d+)|0x[0-9a-fA-F]+|\d+)([+-]\d+)?$/);
+    if (!m) return null;
+    var base;
+    if (m[2] !== undefined) base = 1n << BigInt(m[2]);
+    else base = BigInt(m[1]);
+    if (m[3]) base += BigInt(m[3]);
+    if (base < 0n) base = 0n;
+    return base;
+  }
+
+  function randBig(m) {
+    if (m <= 1n) return 0n;
+    var v = 0n;
+    if (window.crypto && window.crypto.getRandomValues) {
+      var bits = m.toString(2).length, bytes = Math.ceil(bits / 8);
+      var arr = new Uint8Array(bytes);
+      window.crypto.getRandomValues(arr);
+      for (var i = 0; i < bytes; i++) v = (v << 8n) | BigInt(arr[i]);
+    } else {
+      var s = '', len = m.toString().length;
+      for (var j = 0; j < len; j++) s += Math.floor(Math.random() * 10);
+      v = BigInt(s);
+    }
+    return v % m;
+  }
+
+  function log10Big(v) {
+    var s = v.toString();
+    if (s.length <= 15) return Math.log10(Number(v));
+    var lead = Number(s.slice(0, 15)) / 1e14;
+    return Math.log10(lead) + (s.length - 1);
+  }
+  function fmtDur(sec) {
+    if (!isFinite(sec)) return 'практически вечно';
+    if (sec < 1) return sec.toFixed(2) + ' c';
+    if (sec < 90) return sec.toFixed(1) + ' c';
+    if (sec < 5400) return (sec / 60).toFixed(1) + ' мин';
+    if (sec < 172800) return (sec / 3600).toFixed(1) + ' ч';
+    if (sec < 3.15e7) return (sec / 86400).toFixed(1) + ' дн';
+    var y = sec / 3.156e7;
+    if (y < 1e4) return Math.round(y).toLocaleString('ru-RU') + ' лет';
+    var lg = Math.log10(y), mant = Math.pow(10, lg - Math.floor(lg));
+    return mant.toFixed(1) + '·10^' + Math.floor(lg) + ' лет';
+  }
+  function fmtEtaLg(lgSec) {
+    if (lgSec < 6) return fmtDur(Math.pow(10, lgSec));
+    var lgY = lgSec - 7.4991;
+    if (lgY < 4) return Math.round(Math.pow(10, lgY)).toLocaleString('ru-RU') + ' лет';
+    var mant = Math.pow(10, lgY - Math.floor(lgY));
+    return mant.toFixed(1) + '·10^' + Math.floor(lgY) + ' лет';
+  }
+  function fmtEta(remaining, rate) {
+    if (rate <= 0) return '—';
+    return fmtEtaLg(log10Big(remaining) - Math.log10(rate));
+  }
+
+  function clearSky() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#070d1c';
+    ctx.fillRect(0, 0, W, H);
+  }
+  function dot(h, i) {
+    var x = ((h[0] << 8) | h[1]) / 65535 * W;
+    var y = ((h[2] << 8) | h[3]) / 65535 * H;
+    var hue = (i * 137.508) % 360;
+    ctx.fillStyle = 'hsla(' + hue.toFixed(0) + ',85%,60%,0.55)';
+    ctx.fillRect(x, y, 2.2, 2.2);
+    return [x, y];
+  }
+  function glow(x, y) {
+    var g = ctx.createRadialGradient(x, y, 0, x, y, 34);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.25, 'rgba(120,255,180,0.9)');
+    g.addColorStop(1, 'rgba(120,255,180,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, 34, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#bfffe0'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  function showHint(msg, isErr) {
+    el.hint.className = 'hint' + (isErr ? ' err' : '');
+    el.hint.textContent = msg;
+  }
+
+  function setup() {
+    running = false; started = false; finished = false;
+    foundKey = null; foundXY = null; elapsed = 0; t0 = 0; tried = 0n;
+    clearSky();
+    el.done.hidden = true;
+    el.banner.className = 'banner'; el.banner.textContent = 'Готово к запуску.';
+    el.btn.textContent = '▶ Запустить'; el.btn.disabled = false;
+    el.keys.textContent = '0'; el.rate.textContent = '—';
+    el.time.textContent = '0.0 c'; el.eta.textContent = '—'; el.curk.textContent = '—';
+    el.bar.style.width = '0%';
+
+    var ss = parseKey(el.start.value), ee = parseKey(el.end.value);
+    if (ss === null || ee === null) {
+      el.btn.disabled = true;
+      return showHint('Введите начало и конец диапазона — числом или выражением вида 2^70, 2^70-1, 0x1f.', true);
+    }
+    if (ee < ss) {
+      el.btn.disabled = true;
+      return showHint('Конец диапазона меньше начала.', true);
+    }
+    startKey = ss; endKey = ee; count = ee - ss + 1n;
+
+    if (getMode() === 'addr') {
+      var a = (el.addr.value || '').trim();
+      if (!a) { el.btn.disabled = true; return showHint('Введите адрес-цель (P2PKH, начинается с «1»).', true); }
+      try { target = hash160FromAddress(a); }
+      catch (e) { el.btn.disabled = true; return showHint(e.message, true); }
+      checkUnc = !!el.unc.checked;
+      taddr = a;
+      el.target.textContent = a;
+    } else {
+      hidden = startKey + randBig(count);
+      target = hash160(pubBytes(mul(hidden, G), true));
+      taddr = addressFromHash160(target);
+      checkUnc = false;
+      el.target.textContent = taddr + '   (спрятанный ключ внутри диапазона)';
+    }
+    DOWN = getDir() !== 'up';
+    cur = DOWN ? endKey : startKey;
+    pt = mul(cur, G);
+    jx = pt[0]; jy = pt[1]; jz = 1n;
+    TGT_HEX = hex20(target);
+    readThr(); clearLog(); hueN = 0;
+
+    var msg = 'Диапазон: ' + count.toLocaleString('ru-RU') + ' ключей  [' + startKey.toString() + ' … ' + endKey.toString() + ']';
+    msg += '  ·  перебор ' + (DOWN ? 'сверху вниз ⬇' : 'снизу вверх ⬆');
+    if (count > 3000000n) {
+      var guess = Number(count) / RATE_GUESS;
+      msg += '  ⚠︎ при ~' + RATE_GUESS.toLocaleString('ru-RU') + ' кл/с это ≈ ' + fmtDur(guess);
+    }
+    showHint(msg, false);
+    return true;
+  }
+
+  function liveUI() {
+    el.keys.textContent = tried.toLocaleString('ru-RU');
+    var rate = elapsed > 0 ? Number(tried) / elapsed : 0;
+    if (elapsed > 0.1) el.rate.textContent = Math.round(rate).toLocaleString('ru-RU') + ' кл/с';
+    el.time.textContent = elapsed.toFixed(1) + ' c';
+    el.curk.textContent = cur.toString().slice(0, 18) + '…';
+    var pct = count > 0n ? Number(tried * 10000n / count) / 100 : 0;
+    el.bar.style.width = pct.toFixed(2) + '%';
+    if (rate > 0) el.eta.textContent = fmtEta(count - tried, rate);
+  }
+
+  function frame() {
+    if (!running) return;
+    var lim = Number(count - tried), i, adv = 0;
+    if (lim > BATCH) lim = BATCH;
+    for (i = 0; i < lim; i++) {
+      bx[i] = jx; by[i] = jy; bz[i] = jz;
+      var t = DOWN ? jacAddNegG(jx, jy, jz) : jacAddG(jx, jy, jz);
+      jx = t[0]; jy = t[1]; jz = t[2];
+    }
+    if (lim > 0) batchInvZ(bz, lim, binv);
+    logBudget = 200;   // предохранитель от лавины записей при очень низком пороге
+    for (i = 0; i < lim; i++) {
+      var zi = binv[i], zi2 = mn(zi * zi);
+      var ax = mn(bx[i] * zi2), ay = mn(by[i] * mn(zi * zi2));
+      pubB[0] = (ay & 1n) ? 3 : 2; w32(pubB, 1, ax);
+      hash160b(pubB, hO);
+      var hit = eq20(hO, target);
+      if (!hit && checkUnc) {
+        pubU[0] = 4; w32(pubU, 1, ax); w32(pubU, 33, ay);
+        hash160b(pubU, hO);
+        hit = eq20(hO, target);
+      }
+      adv = i + 1;
+      var keyI = DOWN ? (cur - BigInt(i)) : (cur + BigInt(i));
+      if (hit) { foundKey = keyI; foundXY = dot(hO, hueN); break; }
+      /* совпадение «с начала»: сколько первых символов hex160 совпало с целью */
+      var mb = 0;
+      while (mb < 20 && hO[mb] === target[mb]) mb++;
+      if (mb * 2 >= THR) {
+        var cs = hex20(hO), n2 = 0;
+        while (n2 < 40 && cs[n2] === TGT_HEX[n2]) n2++;
+        if (n2 > THR) addLog(String(keyI), cs.slice(0, n2), n2);
+      }
+      dot(hO, hueN); hueN++;
+    }
+    cur = DOWN ? (cur - BigInt(adv)) : (cur + BigInt(adv));
+    tried = tried + BigInt(adv);
+    elapsed = (performance.now() - t0) / 1000;
+    liveUI();
+    if (foundKey !== null) { onFound(); return; }
+    if (tried >= count) { onExhausted(); return; }
+    requestAnimationFrame(frame);
+  }
+
+  function onFound() {
+    running = false; finished = true;
+    if (foundXY) glow(foundXY[0], foundXY[1]);
+    var rate = Math.round(Number(tried) / Math.max(elapsed, 0.001));
+    el.banner.className = 'banner ok';
+    el.banner.innerHTML = '✅ НАЙДЕН КЛЮЧ: <b>' + foundKey.toString() + '</b><br>' +
+      '<span style="font-size:12px;color:#9fd6b8">проверено ' + tried.toLocaleString('ru-RU') +
+      ' за ' + elapsed.toFixed(2) + ' c  ·  ' + rate.toLocaleString('ru-RU') + ' ключей/с</span>';
+    el.done.hidden = false;
+    el.done.textContent = 'Адрес-цель: ' + taddr;
+    el.rate.textContent = rate.toLocaleString('ru-RU') + ' кл/с';
+    el.btn.textContent = '▶ Запустить заново';
+    el.eta.textContent = '0';
+  }
+
+  function onExhausted() {
+    running = false; finished = true;
+    el.banner.className = 'banner';
+    el.banner.textContent = 'Весь диапазон проверен — совпадений нет.';
+    el.btn.textContent = '▶ Запустить заново';
+  }
+
+  el.btn.addEventListener('click', function () {
+    if (running) { running = false; el.btn.textContent = '▶ Продолжить'; return; }
+    if (!started || finished) {
+      if (!setup()) return;
+      started = true; finished = false; t0 = performance.now();
+    } else {
+      t0 = performance.now() - elapsed * 1000;
+    }
+    el.btn.textContent = '⏸ Пауза';
+    running = true;
+    requestAnimationFrame(frame);
+  });
+
+  el.reset.addEventListener('click', function () { setup(); });
+  if (el.logClear) el.logClear.addEventListener('click', clearLog);
+  if (el.thr) el.thr.addEventListener('change', readThr);
+
+  function refresh() {
+    if (running) return;
+    el.addrRow.hidden = getMode() !== 'addr';
+    setup();
+  }
+  el.start.addEventListener('change', refresh);
+  el.end.addEventListener('change', refresh);
+  el.addr.addEventListener('change', refresh);
+  el.unc.addEventListener('change', refresh);
+  for (var k = 0; k < modes.length; k++) modes[k].addEventListener('change', refresh);
+  for (var d = 0; d < dirs.length; d++) dirs[d].addEventListener('change', refresh);
+
+  el.addrRow.hidden = getMode() !== 'addr';
+  setup();
+})();
+
+</script>
+</body>
+</html>
